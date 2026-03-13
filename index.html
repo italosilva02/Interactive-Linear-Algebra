@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LinearViz Engine</title>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style/style.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <div class="sidebar-header">
+        <div class="logo">
+          <span class="logo-mark">LV</span>
+          <div>
+            <div class="logo-text">LinearViz</div>
+            <div class="logo-sub">Engine</div>
+          </div>
+        </div>
+        <button class="theme-toggle" onclick="toggleTheme()" title="Alternar tema">
+          <span id="themeIcon">☀</span>
+        </button>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-btn active" data-tab="viz" onclick="switchTab('viz')">
+          <span class="nav-icon">◈</span><span>Visualizador</span>
+        </button>
+        <button class="nav-btn" data-tab="calc" onclick="switchTab('calc')">
+          <span class="nav-icon">⊕</span><span>Calculadora</span>
+        </button>
+        <button class="nav-btn" data-tab="study" onclick="switchTab('study')">
+          <span class="nav-icon">◻</span><span>Guia</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- VIZ PANEL -->
+    <div id="panel-viz" class="panel active">
+      <div class="field-group">
+        <label class="field-label">Modo Geométrico</label>
+        <select id="modeSelect" class="select" onchange="onModeChange(this.value)">
+          <option value="2d_lines">Retas no Plano (2D)</option>
+          <option value="3d_points">Pontos no Espaço (3D)</option>
+          <option value="3d_lines">Retas no Espaço (3D)</option>
+          <option value="3d_surface">Superfície 3D</option>
+        </select>
+      </div>
+
+      <div id="cameraControls" class="cam-controls hidden">
+        <label class="field-label">Vista rápida</label>
+        <div class="cam-grid">
+          <button class="cam-btn" onclick="setCamera('perspective')">Perspectiva</button>
+          <button class="cam-btn" onclick="setCamera('xy')">Topo (XY)</button>
+          <button class="cam-btn" onclick="setCamera('xz')">Frente (XZ)</button>
+          <button class="cam-btn" onclick="setCamera('yz')">Lado (YZ)</button>
+        </div>
+      </div>
+
+      <div id="surfaceControls" class="surface-controls hidden">
+        <label class="field-label">Função Z = f(x,y)</label>
+        <input type="text" id="surfaceFn" class="input mono" value="sin(sqrt(x^2+y^2))" placeholder="Ex: sin(x)*cos(y)">
+        <div class="field-group" style="margin-top:8px">
+          <label class="field-label">Tipo de visualização</label>
+          <select id="surfaceStyle" class="select" onchange="debounceRender()">
+            <option value="surface">Superfície com cor</option>
+            <option value="wireframe">Malha (wireframe)</option>
+            <option value="both">Superfície + Malha</option>
+          </select>
+        </div>
+        <div class="range-row">
+          <label class="field-label">Range X / Y</label>
+          <div class="range-inputs">
+            <input type="number" id="rangeMin" class="input mono" value="-6" style="width:60px">
+            <span class="range-sep">→</span>
+            <input type="number" id="rangeMax" class="input mono" value="6" style="width:60px">
+          </div>
+        </div>
+        <div class="range-row">
+          <label class="field-label">Resolução</label>
+          <input type="range" id="surfaceRes" min="20" max="80" value="40" class="range-slider" oninput="document.getElementById('resLabel').textContent=this.value; debounceRender()">
+          <span id="resLabel" class="range-label">40</span>
+        </div>
+        <button class="render-btn" onclick="renderPlot()">Renderizar</button>
+      </div>
+
+      <div id="objectControls">
+        <div class="section-label">
+          <span>Objetos</span>
+          <div style="display:flex;gap:4px">
+            <button class="add-btn" id="addScalarBtn" onclick="createInputRow('scalar')" title="Adicionar escalar">λ</button>
+            <button class="add-btn" id="addBtn" onclick="createInputRow('geom')" title="Adicionar objeto">+</button>
+          </div>
+        </div>
+        <div id="inputsContainer" class="inputs-list"></div>
+      </div>
+    </div>
+
+    <!-- CALC PANEL -->
+    <div id="panel-calc" class="panel">
+      <div class="calc-section">
+        <div class="calc-title">Vetores</div>
+        <div class="field-group">
+          <label class="field-label">Vetor u</label>
+          <input type="text" id="vecA" class="input mono" placeholder="3, 4, 0">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Vetor v</label>
+          <input type="text" id="vecB" class="input mono" placeholder="1, 2, -1">
+        </div>
+        <div class="btn-grid">
+          <button class="op-btn" onclick="calcVector('add')">u + v</button>
+          <button class="op-btn" onclick="calcVector('sub')">u − v</button>
+          <button class="op-btn" onclick="calcVector('dot')">u · v</button>
+          <button class="op-btn" onclick="calcDistance()">dist</button>
+        </div>
+        <div id="vecResult" class="result-box">—</div>
+      </div>
+
+      <div class="calc-section">
+        <div class="calc-title">Matrizes</div>
+        <div class="field-group">
+          <label class="field-label">Matriz A (JSON)</label>
+          <textarea id="matA" class="input mono textarea">[[2,5],[4,6]]</textarea>
+        </div>
+        <div class="btn-grid">
+          <button class="op-btn" onclick="calcMatrix('transpose')">Aᵀ</button>
+          <button class="op-btn" onclick="calcMatrix('det')">|A|</button>
+          <button class="op-btn" style="grid-column:span 2" onclick="calcMatrix('shape')">Forma + Info</button>
+        </div>
+        <div id="matResult" class="result-box">—</div>
+      </div>
+
+      <button class="export-btn" onclick="exportResults()">↓ Exportar Relatório .txt</button>
+    </div>
+
+    <!-- STUDY PANEL -->
+    <div id="panel-study" class="panel study-panel">
+      <div class="study-entry">
+        <div class="study-tag">ESPAÇO</div>
+        <div class="study-title">Espaços ℝⁿ</div>
+        <div class="study-body">ℝ² é o plano cartesiano com dois eixos (X, Y). ℝ³ é o espaço tridimensional. Cada ponto é representado por n coordenadas reais.</div>
+      </div>
+      <div class="study-entry">
+        <div class="study-tag">VETOR</div>
+        <div class="study-title">Vetores e Módulo</div>
+        <div class="study-body">Um vetor v = (v₁,v₂,…,vₙ) tem módulo |v| = √(v₁²+v₂²+…+vₙ²), que representa seu comprimento no espaço.</div>
+      </div>
+      <div class="study-entry">
+        <div class="study-tag">MÉTRICA</div>
+        <div class="study-title">Distâncias</div>
+        <div class="study-body"><strong>L₂ (Euclidiana):</strong> √Σ(pᵢ−qᵢ)² — linha reta.<br><br><strong>L₁ (Manhattan):</strong> Σ|pᵢ−qᵢ| — percurso em grade.</div>
+      </div>
+      <div class="study-entry">
+        <div class="study-tag">ESCALAR</div>
+        <div class="study-title">Produto Escalar</div>
+        <div class="study-body">u·v = Σuᵢvᵢ = |u||v|cosθ. Vetores ortogonais têm produto escalar zero.</div>
+      </div>
+      <div class="study-entry">
+        <div class="study-tag">MATRIZ</div>
+        <div class="study-title">Determinante</div>
+        <div class="study-body">Fator de escala da transformação linear. det=0 indica colapso dimensional (dependência linear).</div>
+      </div>
+      <div class="study-entry">
+        <div class="study-tag">STAT</div>
+        <div class="study-title">Covariância</div>
+        <div class="study-body">Cov(X,Y) = Σ(xᵢ−x̄)(yᵢ−ȳ) / (n−1). Mede como duas variáveis variam juntas. Positiva = mesma direção.</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CANVAS -->
+  <main class="canvas">
+    <div id="plot" class="plot"></div>
+
+    <!-- FLOATING MATH CARD (draggable) -->
+    <div id="mathCard" class="math-card hidden" id="mathCard">
+      <div class="math-card-header" id="mathCardDragHandle">
+        <div class="math-card-title">
+          <span class="math-card-dot"></span>
+          <span>Métricas</span>
+        </div>
+        <button class="math-card-min" onclick="toggleMathCard()">−</button>
+      </div>
+      <div id="mathCardBody" class="math-card-body"></div>
+    </div>
+
+    <div class="canvas-footer">
+      <div id="statsBar" class="stats-bar"></div>
+    </div>
+  </main>
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>
