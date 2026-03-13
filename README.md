@@ -331,5 +331,3 @@ Cov(X,Y) = Σ(xᵢ − x̄)(yᵢ − ȳ) / (n − 1)
 ```
 
 ---
-
-*LinearViz Engine — Portfolio Edition*
